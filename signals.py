@@ -33,6 +33,7 @@ EMA_FAST, EMA_SLOW = 20, 50
 RSI_PERIOD = 14
 ATR_PERIOD = 14
 SL_ATR, TP_ATR = 1.5, 3.0
+MAX_SIGNAL_AGE_MIN = 59   # un signal n'est envoyé que si sa bougie s'est fermée il y a moins de 59 min
 # ---------------------------------------------------------------------------
 
 
@@ -125,6 +126,15 @@ def fetch(symbol: str) -> pd.DataFrame:
     return df
 
 
+def is_fresh(sig: dict, now=None) -> bool:
+    """Vrai si la bougie du signal vient de se fermer (évite d'envoyer deux fois le même signal)."""
+    now = now if now is not None else pd.Timestamp.now(tz="UTC")
+    t = pd.Timestamp(sig["time"])
+    t = t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+    age = now - (t + pd.Timedelta(hours=1))
+    return age <= pd.Timedelta(minutes=MAX_SIGNAL_AGE_MIN)
+
+
 def send_telegram(text: str) -> None:
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -170,6 +180,9 @@ def main() -> None:
         if sig is None:
             print(f"[{name}] pas de signal.")
             continue
+        if not is_fresh(sig):
+            print(f"[{name}] signal déjà traité lors d'un passage précédent, ignoré.")
+            continue
         found += 1
         msg = build_message(name, sig)
         print(msg, "\n")
@@ -181,4 +194,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-  
