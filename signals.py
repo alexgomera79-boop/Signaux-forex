@@ -99,7 +99,7 @@ def detect_signal(df: pd.DataFrame):
         "sl": sl,
         "tp": tp,
         "rsi": float(last["rsi"]),
-        "time": df.index[-1],
+        "time": df.index[-1].tz_convert("UTC") if df.index[-1].tzinfo else df.index[-1],
     }
 
 
